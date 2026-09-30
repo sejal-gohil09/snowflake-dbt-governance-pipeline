@@ -1,0 +1,108 @@
+version: 2
+
+models:
+  - name: dim_customers
+    description: |
+      Kimball customer dimension. One row per customer.
+      Contains PII columns subject to dynamic masking policies and
+      a region column for Row-Level Security (UK/EU isolation).
+    columns:
+      - name: customer_key
+        description: "Surrogate primary key (SHA-256 of customer_id)"
+        tests:
+          - unique
+          - not_null
+      - name: customer_id
+        description: "Natural key — unique customer identifier from source system"
+        tests:
+          - unique
+          - not_null
+      - name: customer_email
+        description: "Customer email (PII — protected by dynamic masking policy)"
+        tests:
+          - not_null
+      - name: region
+        description: "Customer region — drives Row-Level Security policy"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['UK', 'EU']
+      - name: customer_age
+        description: "Derived age from date_of_birth (data minimisation per GDPR Art. 5)"
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 18
+              max_value: 100
+      - name: country
+        description: "Customer country of residence"
+        tests:
+          - not_null
+      - name: customer_since
+        description: "Date the customer record was created"
+        tests:
+          - not_null
+
+  - name: fct_orders
+    description: |
+      Kimball orders fact table. One row per order.
+      Contains a foreign key to dim_customers and a denormalised
+      order_region column for Row-Level Security filtering.
+    columns:
+      - name: order_key
+        description: "Surrogate primary key (SHA-256 of order_id)"
+        tests:
+          - unique
+          - not_null
+      - name: order_id
+        description: "Natural key — unique order identifier"
+        tests:
+          - unique
+          - not_null
+      - name: customer_key
+        description: "Foreign key to dim_customers.customer_key"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_customers')
+              field: customer_key
+      - name: customer_id
+        description: "Natural foreign key to dim_customers"
+        tests:
+          - not_null
+      - name: order_status
+        description: "Order fulfilment status"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Pending', 'Shipped', 'Delivered', 'Cancelled', 'Refunded']
+      - name: quantity
+        description: "Number of items ordered"
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 1
+              max_value: 1000
+      - name: unit_price
+        description: "Price per unit in GBP"
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 1000
+      - name: total_amount
+        description: "Total order amount including 20% VAT"
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 100000
+      - name: order_region
+        description: "Region for the order — drives Row-Level Security policy"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['UK', 'EU']
+      - name: order_date
+        description: "Date the order was placed"
+        tests:
+          - not_null

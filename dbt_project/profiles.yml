@@ -1,0 +1,31 @@
+{#
+  profiles.yml — dbt connection profiles for Snowflake and Postgres.
+  Place this file at ~/.dbt/profiles.yml or set DBT_PROFILES_DIR.
+
+  Snowflake: used for production governance (RBAC, masking, RLS)
+  Postgres:  used for local development and CI/CD with Supabase
+#}
+
+analytics:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: "{{ env_var('POSTGRES_HOST', 'localhost') }}"
+      user: "{{ env_var('POSTGRES_USER', 'postgres') }}"
+      password: "{{ env_var('POSTGRES_PASSWORD', '') }}"
+      port: "{{ env_var('POSTGRES_PORT', 5432) | int }}"
+      dbname: "{{ env_var('POSTGRES_DBNAME', 'postgres') }}"
+      schema: public
+      threads: 4
+
+    prod:
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT', '') }}"
+      user: "{{ env_var('SNOWFLAKE_USER', '') }}"
+      password: "{{ env_var('SNOWFLAKE_PASSWORD', '') }}"
+      role: DATA_ENGINEER
+      database: ANALYTICS
+      warehouse: COMPUTE_WH
+      schema: marts
+      threads: 4

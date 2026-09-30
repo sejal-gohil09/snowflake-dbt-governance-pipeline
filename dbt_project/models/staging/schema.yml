@@ -1,0 +1,86 @@
+version: 2
+
+sources:
+  - name: raw
+    schema: "{{ target.schema }}"
+    tables:
+      - name: raw_customers
+        description: "Raw customer data loaded from UK/EU source systems via load_data.py"
+        columns:
+          - name: customer_id
+            description: "Natural primary key — unique customer identifier"
+            tests:
+              - unique
+              - not_null
+          - name: customer_email
+            description: "Customer email address (PII — subject to dynamic masking)"
+            tests:
+              - not_null
+          - name: region
+            description: "Customer region: UK or EU"
+            tests:
+              - accepted_values:
+                  values: ['UK', 'EU']
+          - name: country
+            description: "Customer country of residence"
+            tests:
+              - not_null
+
+      - name: raw_orders
+        description: "Raw order/transaction data loaded from source systems"
+        columns:
+          - name: order_id
+            description: "Natural primary key — unique order identifier"
+            tests:
+              - unique
+              - not_null
+          - name: customer_id
+            description: "Foreign key to raw_customers"
+            tests:
+              - relationships:
+                  to: source('raw', 'raw_customers')
+                  field: customer_id
+          - name: quantity
+            description: "Items ordered — must be positive"
+            tests:
+              - not_null
+              - dbt_utils.accepted_range:
+                  min_value: 1
+          - name: unit_price
+            description: "Price per unit — must be non-negative"
+            tests:
+              - not_null
+              - dbt_utils.accepted_range:
+                  min_value: 0
+          - name: region
+            description: "Order region: UK or EU (used for RLS)"
+            tests:
+              - accepted_values:
+                  values: ['UK', 'EU']
+
+models:
+  - name: stg_customers
+    description: "Staging view: cleansed customer data with PII hashing and derived age"
+    columns:
+      - name: customer_id
+        tests: [unique, not_null]
+      - name: region
+        tests:
+          - accepted_values:
+              values: ['UK', 'EU']
+
+  - name: stg_orders
+    description: "Staging view: standardised order data with derived monetary amounts"
+    columns:
+      - name: order_id
+        tests: [unique, not_null]
+      - name: customer_id
+        tests: [not_null]
+      - name: quantity
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 1
+      - name: total_amount
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0

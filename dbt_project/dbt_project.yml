@@ -1,0 +1,63 @@
+# dbt project configuration — Snowflake-dbt Governance Pipeline
+# This project builds a Kimball star schema (dim_customers + fct_orders)
+# from raw e-commerce data with PII masking, RLS, and data quality tests.
+
+name: 'analytics'
+version: '1.0.0'
+config-version: 2
+
+profile: 'analytics'
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+# Persist model documentation into Snowflake (GDPR Art. 30 — records of processing)
+persist_docs:
+  relation: true
+  columns: true
+
+models:
+  analytics:
+    +materialized: view
+    staging:
+      +schema: staging
+      +tags: ["staging", "hourly"]
+    marts:
+      +materialized: table
+      +schema: marts
+      +tags: ["marts", "production"]
+
+seeds:
+  analytics:
+    +schema: staging
+    raw_customers:
+      +column_types:
+        customer_id: varchar
+        customer_full_name: text
+        customer_email: text
+        customer_phone: text
+        country: text
+        region: varchar(4)
+        gender: varchar(4)
+        date_of_birth: date
+        created_at: timestamp
+        updated_at: timestamp
+    raw_orders:
+      +column_types:
+        order_id: varchar
+        customer_id: varchar
+        order_date: date
+        order_status: varchar
+        payment_method: varchar
+        product_category: varchar
+        product_description: text
+        quantity: integer
+        unit_price: float
+        region: varchar(4)
+        created_at: timestamp
